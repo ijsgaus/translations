@@ -1,6 +1,6 @@
 ﻿Использование Hopac
 ====================
-1. [Вступление](#introduction)
+1. [Вступление](#Вступление)
 2. [Модель разработки Hopac](#the-hopac-programming-model)
   1. [Где и когда использовать Hopac](#potential-applications-for-hopac) 
 3. [Несколько ступительных примеров](#a-couple-of-introductory-examples)
@@ -20,7 +20,7 @@
 6. [Channels, Mailboxes, IVars, MVars, ...](#channels-mailboxes-ivars-mvars-)
 7. [Going Further](#going-further)
 
-Вступление
+Вступление 
 ------------
 Hopac предлагает модель программирования, вдохновленную идеями, использованными 
 [John Reppy](http://people.cs.uchicago.edu/~jhr/) в языке программирования **Concurrent ML**.

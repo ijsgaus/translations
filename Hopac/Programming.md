@@ -107,18 +107,16 @@ Hopac - это не панацея на все случаи.  Как сказа�
 Вместо того, чтобы скрупулезно изучать примитивы Hopac, давайте сначала пробежимся по нескольким примерам. 
 Эти примеры просты и вы можете быстро их просмотреть. Мы чуть позже детально рассмотрим примитивы, используемые в них.
 
-### Example: Updatable Storage Cells
+### Пример: Изменяемая ячейка памяти
 
-In the book
+В книге
 [Concurrent Programming in ML](http://www.cambridge.org/us/academic/subjects/computer-science/distributed-networked-and-mobile-computing/concurrent-programming-ml),
-[John Reppy](http://people.cs.uchicago.edu/~jhr/) presents as the first
-programming example an implementation of updatable storage cells using
-Concurrent ML channels and threads.  While this example is not exactly something
-that one would do in practice, because F# already provides ref cells, it does a
-fairly nice job of illustrating some core aspects of Concurrent ML.  So, let's
-reproduce the same example with Hopac.
+[John Reppy](http://people.cs.uchicago.edu/~jhr/) эта задача - первый пример использования каналов
+Concurrent ML и зеленых нитей. Конечно на практике никто не будет использовать данную реализацию, поскольку в FSharp уже есть
+родная реализация изменяемых ячейек (ref cells), но это хороший пример, иллюстрирующий некоторые основные особенности
+модели. Давайте воспроизведем этот пример, используя Hopac.
 
-Here is the signature for our updatable storage cells:
+Вот сигнатура изменяемой ячейки:
 
 ```fsharp
 type Cell<'a>
@@ -127,15 +125,12 @@ val get: Cell<'a> -> Job<'a>
 val put: Cell<'a> -> 'a -> Job<unit>
 ```
 
-The `cell` function creates a
-job[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Job)
-that creates a new storage cell.  The `get` function creates a job that returns
-the contents of the cell and the `put` function creates a job that updates the
-contents of the cell.
+Функция `cell` создает
+job[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Job), генерерующий новую ячейку.  Функция
+`get` создает `job`, возвращающий ее содержимое, а функция `put` - `job`, изменяющий ячейку.
 
-The basic idea behind the implementation is that the cell is a concurrent
-*server* that responds to `Get` and `Put` request.  We represent the requests
-using the `Request` discriminated union type:
+Основная идея реализации заключается в том, что ячейка рассматривается как конкуретный сервер, способный обслуживать запросы на
+чтение и запись значения в ячейку. Тип запроса мы определим, используя размеченнное объединение `Request`:
 
 ```fsharp
 type Request<'a> =
@@ -143,10 +138,9 @@ type Request<'a> =
  | Put of 'a
 ```
 
-To communicate with the outside world, the server presents two channels: one
-channel for requests and another channel for replies required by the get
-operation.  The `Cell` type is a record of those two
-channels[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Ch):
+Для общения с внешним миром сервер предоставляет два канала - один для приема запросов, 
+по другому он посылает ответы. Тип `Cell` - запись из этих 
+каналов[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Ch):
 
 ```fsharp
 type Cell<'a> = {
@@ -155,11 +149,9 @@ type Cell<'a> = {
 }
 ```
 
-The `put` operation is a
-job[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.job)
-that simply
-gives[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.give)
-the `Put` request to the server via the request channel:
+Функция `put` - `job`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.job), 
+отдающий (give[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.give)) 
+запрос на сервер через канал запроса:
 
 ```fsharp
 let put (c: Cell<'a>) (x: 'a) : Job<unit> = job {
@@ -167,10 +159,9 @@ let put (c: Cell<'a>) (x: 'a) : Job<unit> = job {
 }
 ```
 
-The `get` operation gives the `Get` request to the server via the request
-channel and then
-takes[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.take)
-the server's reply from the reply channel:
+Функция `get` отправляет запрос `Get` на канал запроса сервер и забирает
+ответ (take[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.take))
+с канала ответа:
 
 ```fsharp
 let get (c: Cell<'a>) : Job<'a> = job {
@@ -179,9 +170,9 @@ let get (c: Cell<'a>) : Job<'a> = job {
 }
 ```
 
-Finally, the `cell` operation actually creates the channels and
-starts[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.start)
-the concurrent server job:
+И последняя необходимая функция `cell` действительно создает каналы и запускает
+(start[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.start))
+конкуррентный сервер:
 
 ```fsharp
 let cell (x: 'a) : Job<Cell<'a>> = job {
@@ -200,13 +191,12 @@ let cell (x: 'a) : Job<Cell<'a>> = job {
 }
 ```
 
-The concurrent server is a job that loops indefinitely taking requests from the
-request channel.  When the server receives a `Get` request, it gives the current
-value of the cell on the reply channel and then loops to take another request.
-When the server receives a `Put` request, the server loops with the new value to
-take another request.
+Конкуретный сервер - это `job`, который в бесконечном рекурсивном цикле забирает сообщения из 
+канала запроса и, в случае `Get` сообщения , возвращает значение своего параметра через канал ответа,
+перезапуская себя с текущим параметром, или, в случае
+`Put` сообщения, запускает себя с новым параметром.
 
-Here is sample output of an interactive session using a cell: 
+Вот пример вывода, полученный в интерактивной сессии:
 
 ```fsharp
 > let c = run (cell 1) ;;
@@ -219,25 +209,21 @@ val it : unit = ()
 val it : int = 2
 ```
 
-#### Garbage Collection
+#### Сборка мусора
 
-Running through the previous example you may have wondered about what happens to
-server jobs that run inside those cells.  Shouldn't they be killed?  Indeed, one
-aspect that is important to understand is that Hopac jobs and channels are basic
-simple .Net objects and can be garbage collected.  Specifically, jobs and
-channels do not inherently hold onto disposable system resources.  This is
-unlike the
-[MailboxProcessor](http://msdn.microsoft.com/en-us/library/ee370357.aspx), for
-example, which is
-[disposable](http://msdn.microsoft.com/en-us/library/system.idisposable.aspx).
-What this means in practice is that most jobs do not necessarily need to
-implement any special kill protocol.  A job that is blocked waiting for
-communication on a channel that is no longer reachable can (and will) be garbage
-collected.  Only jobs that explicitly hold onto some resource that needs to be
-disposed must implement a kill protocol to explicitly make sure that the
-resource gets properly disposed.
+Запуская предыдущий пример, вы могли заинтересоваться тем, что же происходит с
+`job`, запущенной внутри ячейки. Будет ли она когда нибудь остановлена? Действительно,
+один из важных моментов для понимания - это то, что Hopac `job`s и `channel`s всего
+навсего обычные объекты .Net и могут быть собраны сборщиком мусора. К тому же, они
+не содержат ресурсов, требующих непосредственного управления жизненным циклом. Это
+отличает их, например, от  [MailboxProcessor]'а(http://msdn.microsoft.com/en-us/library/ee370357.aspx),
+требущего прямого освобождения через IDisposable(http://msdn.microsoft.com/en-us/library/system.idisposable.aspx)
+интерфейс. `Job`, ожидающий сообщений
+от канала, не имеющего более ссылок, может быть (и будет) собран сборщиком. Лишь
+`job`ы, непосредственно владеющие ресурсами, троебующими освобождения, должны поддерживать
+протокол уничтожения для уверенного их, ресурсов, освобождения. 
 
-Consider the following interaction:
+Посмотрите на такой тест:
 
 ```fsharp
 > GC.GetTotalMemory true ;;
@@ -252,75 +238,55 @@ val it : unit = ()
 val it : int64 = 39950064L
 ```
 
-The above shows that after the list has become garbage, the cells have been
-garbage collected.  (The above example interaction uses lists to avoid the
-possibility that the objects would end up in the last generation or the LOH,
-because when that happens it can be difficult to force .Net runtime to perform a
-thorough enough GC for the memory estimate to be valid.)
+Он показывает, что после сборки списка, все ячейки были тоже собраны. (Пример
+использует список во избежание возможности войти в последнее поколение кучи больших объектов (LOH), так
+как .Net runtime сложно заставить его (LOH) собирать)
 
-#### On Memory Usage
+#### Об используемой памяти
 
-Another important property of Hopac jobs and synchronous channels is that a
-system that consist of **m** jobs that communicate with each other using
-synchronous message passing over **n** channels requires **&Theta;(m + n)**
-space for the jobs and channels.
+Другой важной особенностью Hopac jobs и синхронных каналов, является прогнозируемое выделение
+памяти под них, а именно, **m** jobs, обменивающихся сообщениями через **n** каналов, будут 
+использовать **&Theta;(m + n)** памяти.  
 
-That may sound obvious, but many concurrent systems,
-e.g. [Erlang](http://www.erlang.org/) and F#'s
-[MailboxProcessor](http://msdn.microsoft.com/en-us/library/ee370357.aspx), are
-built upon asynchronous message passing primitives and in such systems message
-queues can collect arbitrary numbers of messages when there are differences in
-speed between producer and consumer threads.  Synchronous channels do not work
-like that.  A synchronous channel doesn't hold a buffer of messages.  When a
-producer job tries to give a message to a consumer job using a synchronous
-channel, the producer is suspended until a consumer job is ready to take the
-message.  A synchronous channel essentially provides a *simple rendezvous*
-mechanism that is less like a passive buffer for passing data and more like a
-control flow mechanism, like a kind of procedure call with no return value.
-This property can make it easier to understand the behavior of concurrent
-programs.
+Возможно, это очевидно, но многие конкурентные системы, например [Erlang](http://www.erlang.org/) 
+и F#' [MailboxProcessor](http://msdn.microsoft.com/en-us/library/ee370357.aspx), построены поверх
+поверх асинхронных примитивов передачи сообщений и собирают приходящие сообщения в очереди, если
+подписчик обрабатывает их медленнее, чем производит публикатор. Синхронные каналы работают
+по другому. У них нет буфера сообщений, поэтому если публикатор пытается отправить сообщение, которое подписчик
+еще не может обработать, публикатор останавливается и ждет освобождения подписчика. Синхронные каналы
+предоставляют механизм простого рандеву (*simple rendezvous*), который не является по сути буфером для сообщения,
+а скорее механизмом управления исполнением программы, подобно вызову процедуры, невозвращающей результат. Такое свойство
+упрощает понимание поведения конкурентных програм.
 
-Of course, the bound **&Theta;(m + n)** does not take into account space that
-the jobs otherwise accumulate in the form of data structures other than the
-synchronous channels.
+Конечно, граница **&Theta;(m + n)** не учитывает место занимамаемое собственными данными `job`, кроме, собственно, самих каналов.
 
-#### On Notation
+#### Способы описания
 
-There are two ways to write jobs in Hopac.  One way is to use the
-`job`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.job)
-workflow builder like we did in the previous section.  The other way is to
-directly use the monadic combinators,
-`result`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.result)
-and bind,
-`>>=`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E=),
-that the workflow builder abstracts away.  I personally mostly prefer using the
-monadic combinators with an occasional excursion with the workflow notation.  I
-have a number of reasons for this:
+Существует два способа описания job в Hopac. Первый использует `job`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.job)
+как монадный строитель в семантике F#, как и было показано в прошлом примере. Второй использут напрямую набор монадных
+комбинаторов, `result`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.result) и 
+bind, `>>=`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E=), которые строитель скрывает под абстракцией.
+Лично я предпочитаю использовать комбинаторы и только иногда переходить на строителя. У меня есть для этого 
+ряд причин:
 
-* Using the combinators directly usually leads to more concise code.
-* I often find it easier to understand the code when it is written with the
-  monadic combinators.
-* There are many very commonly used monadic combinators,
-  e.g. `>>-`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E-)
-  and
+* использование комбинаторов напрямую порождает более лаконичный код
+* мне чащу проще понять код, написанный с использованием комбинаторов
+* есть много часто используемы комбинаторов, например `>>-`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E-)
+  и
   `>>-.`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E-.),
-  that do not have a corresponding workflow builder function and notation and
-  use of those combinators leads to faster code.
-* Using the combinators directly I can often avoid some unnecessary
-  `delay`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.delay)
-  operations the workflow notation introduces for safety reasons.
+  не имеющих аналогов в нотации строител, и их использование ускоряет программу.  
+* используя комбинаторы напрямуя, я часто могу избежать необязательных операций
+  `delay`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.delay),
+  которые в нотации строителей введены из соображений безопасности.
 
-I'm afraid that to fully explain all of these issues would require quite a bit
-of writing and I think that there are more interesting things to tell about
-Hopac, so I'll skip it for now.  In the reminder of this document I will be
-writing Hopac code in my preferred way.  If you prefer to make more use of the
-workflow notation, you could consider it as an exercise to convert the examples
-to use the workflow notation.  If you do that, make sure that you properly
-retain tailcall properties of the original snippets.
+Я боюсь, что полное объяснение моих побудетельных мотивов потребует ни одного листа текста, а есть
+много гораздо более интересных вещей в Hopac, о которых хотелось бы рассказать. В дальнейшем я буду
+использовать тот стиль написания программ на Hopac, который мне больше нравится. Если вы предпочитаете нотацию строителей,
+вы можете попробовать переписать примеры с их помощью - это будет хороши упражнением в изучении библиотеки. Если вы решитесь на это,
+обратите внимание на особенности хвостовой рекурсии  оригинальных примеров.
 
-Before we continue, I'd just like to show you the below rewrite of the updatable
-storage cells using those monadic combinators directly.
-
+Перед тем как мы продолжим, вот пример обновляемой ячейки, записанный в стиле монадных комбинаторов:
+ 
 ```fsharp
 let put (c: Cell<'a>) (x: 'a) : Job<unit> =
   Ch.give c.reqCh (Put x)

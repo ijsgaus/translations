@@ -262,27 +262,27 @@ val it : int64 = 39950064L
 
 #### Способы описания
 
-Существует два способа описания job в Hopac. Первый использует `job`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.job)
-как монадный строитель в семантике F#, как и было показано в прошлом примере. Второй использут напрямую набор монадных
+Существует два способа описания job в Hopac. Первый использует монадную нотацию `job`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.job),
+как и было показано в прошлом примере. Второй напрямую использут набор монадных
 комбинаторов, `result`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.result) и 
-bind, `>>=`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E=), которые строитель скрывает под абстракцией.
-Лично я предпочитаю использовать комбинаторы и только иногда переходить на строителя. У меня есть для этого 
+bind, `>>=`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E=), которые нотация скрывает под абстракцией.
+Лично я предпочитаю использовать комбинаторы и только иногда переходить на монадную нотацию. У меня есть для этого 
 ряд причин:
 
 * использование комбинаторов напрямую порождает более лаконичный код
-* мне чащу проще понять код, написанный с использованием комбинаторов
-* есть много часто используемы комбинаторов, например `>>-`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E-)
+* мне чаще проще понять код, написанный с использованием комбинаторов
+* есть много часто используемых комбинаторов, например `>>-`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E-)
   и
   `>>-.`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E-.),
-  не имеющих аналогов в нотации строител, и их использование ускоряет программу.  
+  не имеющих аналогов в монадной нотации, и их использование ускоряет программу.  
 * используя комбинаторы напрямуя, я часто могу избежать необязательных операций
   `delay`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.delay),
-  которые в нотации строителей введены из соображений безопасности.
+  которые в монадной нотации введены из соображений безопасности.
 
 Я боюсь, что полное объяснение моих побудетельных мотивов потребует ни одного листа текста, а есть
 много гораздо более интересных вещей в Hopac, о которых хотелось бы рассказать. В дальнейшем я буду
-использовать тот стиль написания программ на Hopac, который мне больше нравится. Если вы предпочитаете нотацию строителей,
-вы можете попробовать переписать примеры с их помощью - это будет хороши упражнением в изучении библиотеки. Если вы решитесь на это,
+использовать тот стиль написания программ на Hopac, который мне больше нравится. Если вы предпочитаете монадную нотацию,
+вы можете попробовать переписать примеры с ее помощью - это будет хорошим упражнением в изучении библиотеки. Если вы решитесь на это,
 обратите внимание на особенности хвостовой рекурсии  оригинальных примеров.
 
 Перед тем как мы продолжим, вот пример обновляемой ячейки, записанный в стиле монадных комбинаторов:
@@ -303,20 +303,16 @@ let create (x: 'a) : Job<Cell<'a>> = Job.delay <| fun () ->
   Job.start (server x) >>-. c
 ```
 
-As you can see above, I've used
+Как вы видете, я использовал 
 `delay`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.delay)
-only once and if you count the number of words and lines, you'll find out that
-that the code is more concise.  I personally find the monadic code roughly as
-readable as the workflow notation.
+лишь один раз. А если вы подсчитаете количество слов и строк, вы обнаружите, что код более лаконичен. Лично я нахожу код, 
+написанный с использованием монадных комбинаторов, как минимум, настолько же читаемым, как и код в стиле монадной нотации.
 
-In addition to the monadic job combinators, Hopac also provides symbolic
-operators for some of the message passing operations.  Also, many of the
-operations in Hopac are simple upcasts along the inheritance chain and can
-either be eliminated completely or replaced by an actual F# `upcast` operation.
-Furthermore, Hopac also provides a few shortcut convenience bindings and
-combined operations for frequently used operations and programming idioms.
-Using those shortcuts, and dropping unnecessary type ascriptions, we can write
-the above cell example as:
+В дополнение ук монадным комбинаторам, Hopac предоставляет набор операторов дл многих примитивов передачи сообщений.
+Некоторые из них - это обычный upcast в цепочке наследования и может быть пропуч\щен полностью или заменен на
+родную операцию  F# `upcast`. Более того, Hopac предоставляет так же набор кратких операций для часто используемых
+примитивов передачи сообщений и основных методов программирования. Используя эти операторы и опустив необязательные декларации типов,
+пример с ячейкой можно записать так:
 
 ```fsharp
 let put c x = c.reqCh *<- Put x
@@ -332,17 +328,13 @@ let create x = Job.delay <| fun () ->
   >>-. c
 ```
 
-In this document, we will use type ascriptions so that one see the types without
-compiling the code.  We will also avoid many of the shortcuts for conceptual and
-syntactic clarity.  So, while you can take a value from a channel just by
-binding it, and you might want to use that in production code, we will avoid
-doing that in the examples of this document.
+Однако в этом документе мы будем использовать декларации типов, что бы увидеть их без компиляции кода и стараться
+избегать использования специфичных операторов для концептуально синтаксически более ясного кода. Например,
+хотя можно вять сообщения из канала просто через bind, и это допустимо в рабочем коде, мы постараемся не делать этого
+в примерах.
 
-**Exercise:** As an alternative to having two preallocated channels `reqCh` and
-`replyCh` one could also make it so that a fresh reply channel is allocated and
-passed to the server by the `get` operation each time.  Change the
-implementation to use this technique.  Explain what performance advantages and
-disadvantages such an implementation might have?
+**Упражнение:** Как альтернатива использования канала ответов, можно отводить свежий канал для ответа в каждой операции get. 
+Попробуйте изменить исходный текст, используя эту технику. Подумайте о плюсах и минусах в производительности у такого подхода.
 
 ### Example: Storage Cells Using Alternatives
 

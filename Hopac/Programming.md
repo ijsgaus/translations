@@ -113,7 +113,7 @@ Hopac - это не панацея на все случаи.  Как сказа�
 [Concurrent Programming in ML](http://www.cambridge.org/us/academic/subjects/computer-science/distributed-networked-and-mobile-computing/concurrent-programming-ml),
 [John Reppy](http://people.cs.uchicago.edu/~jhr/) эта задача - первый пример использования каналов
 Concurrent ML и зеленых нитей. Конечно на практике никто не будет использовать данную реализацию, поскольку в FSharp уже есть
-родная реализация изменяемых ячейек (ref cells), но это хороший пример, иллюстрирующий некоторые основные особенности
+родная реализация изменяемых ячеек (ref cells), но это хороший пример, иллюстрирующий некоторые основные особенности
 модели. Давайте воспроизведем этот пример, используя Hopac.
 
 Вот сигнатура изменяемой ячейки:
@@ -336,15 +336,14 @@ let create x = Job.delay <| fun () ->
 **Упражнение:** Как альтернатива использования канала ответов, можно отводить свежий канал для ответа в каждой операции get. 
 Попробуйте изменить исходный текст, используя эту технику. Подумайте о плюсах и минусах в производительности у такого подхода.
 
-### Example: Storage Cells Using Alternatives
+### Пример: Ячейка памяти с использованием альтернатив
 
-The updatable storage cells in the previous section were built using only
-channels and jobs.  In order to allow for the two different kind of requests,
-`Get` and `Put`, the union type `Request` and pattern matching were used.  In
-this section we look at an alternative implementation of storage cells using
-selective communication.
+Изменяемая ячейка памяти в предыдущем разделе была построена с использованием 
+только каналов и *jobs*. Чтобы позволить использовать два типа запросов, на чтение и запись,
+ьы использовали `union` *Request* и сопоставление с образцом. В этом разделе посмотрим на другой способ
+реализации ячейки памяти с использованием избирательной коммуникации (selective communication).
 
-As a reminder, here is the abstract signature that we'd like to implement:
+Напомню вам сигнатуру, которую мы хотим реализовать:
 
 ```fsharp
 type Cell<'a>
@@ -353,11 +352,9 @@ val get: Cell<'a> -> Job<'a>
 val put: Cell<'a> -> 'a -> Job<unit>
 ```
 
-The idea for this implementation is that the server loop of storage cells
-creates an alternative that either takes a new value on a channel for `put`
-operations or gives the current value on a channel for `get` operations.  The
-cell type just consists of these
-channels[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Ch):
+Идея оприрается на реализацию серверного цикла, который создает альтернативу,
+способную принять как новое значение для опереции записи, так и отдать текущее значение
+для операции чтения. Тип ячейки состоит из двух каналов [*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Ch):
 
 ```fsharp
 type Cell<'a> = {
@@ -365,24 +362,20 @@ type Cell<'a> = {
   putCh: Ch<'a>
 }
 ```
-
-The `get` operation then simply
-takes[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.take)
-a value on the `getCh` channel from the server of a cell:
+Операция чтения после этого просто забирает [*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.take)
+значение из `getCh` канала сервера:
 
 ```fsharp
 let get (c: Cell<'a>) : Job<'a> = Ch.take c.getCh
 ```
-
-And the `put` operations
-gives[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.give)
-a value to the server on the `putCh` channel of the cell server:
+А операция записи [*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.give)
+отдает значение серверу через канал `putCh`:
 
 ```fsharp
 let put (c: Cell<'a>) (x: 'a) : Job<unit> = Ch.give c.putCh x
 ```
 
-The `cell` constructor then creates the channels and starts the server loop:
+Конструктор ячейки создает каналы и запускает серверный цикл:
 
 ```fsharp
 let cell x = Job.delay <| fun () ->
@@ -393,30 +386,23 @@ let cell x = Job.delay <| fun () ->
   Job.start (server x) >>-. c
 ```
 
-In the server loop, the above implementation uses
-selective[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Alt.choose)
-communication.  It uses a choice of two primitive
-alternatives[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Alt):
+В серверном цикле эта реализация использует избирательную[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Alt.choose)
+коммунникацию. Выбор представляется из двух примитивный альтернатив (`alternatives`)[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Alt):
 
-* The first alternative
-  takes[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.take)
-  a value on the `putCh` channel from a client and
-  then[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%5E=%3E)
-  loops.
-* The second alternative
-  gives[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.take)
-  a value on the `getCh` channel to a client and
-  then[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%5E=%3E)
-  loops.
+* Первая альтернатива забирает[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.take)
+  от клиенте значение из канала `putCh`, после чего[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%5E=%3E)
+  продолжает цикл.
+* Вторая альтернатива отдает[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.take)
+  текущее значение через `getCh` канал клиенту, после чего[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%5E=%3E)
+  продолжает цикл.
 
-What this basically means is that the server makes an offer to perform the
-alternatives.  Of the two offered alternatives, the alternative that becomes
-available first will then be committed to.  The other offer will be withdrawn.
+Получается, что сервер предлагает клиенту контракт для выбора операции. Из двух возможных
+выборов будет исполнена та, которая будет предложена первой. Следущая будет работать с текущим значением,
+так как значение уйдет в замыкание. 
 
-This pattern of carrying some value from one iteration of a server loop to the
-next is common enough that there is a combinator
-`iterate`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.iterate)
-for that purpose.  Using `iterate` we would write:
+Такой шаблон переноса некоторого значениея между итеррациями серверного цикла настолько общий,
+что вынесен в специальный комбинатор `iterate`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.iterate).
+Использование `iterate`:
 
 ```fsharp
 let cell x = Job.delay <| fun () ->
@@ -427,31 +413,23 @@ let cell x = Job.delay <| fun () ->
   >>-. c
 ```
 
-The above also makes use of the function
+Эта реализация использует так же функцию
 `Job.server`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.server)
-instead of
+вместо
 `Job.start`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.start).
-`Job.server` takes advantage of the fact that the job it is given is known to
-never return normally and starts it in a little bit lighter-weight form.
+`Job.server` оптимизирует использование, опираясь на знание того, что `job` является бесконечным циклом.
 
-At this point you might want to try out the snippets of code from this section
-in the F# interactive and verify that the alternative implementation of cells
-works the same way as the previous version.
+Вы можете убедиться, используя F# interactive, что такая реализация ячейки работает точно так же, как и 
+предыдущий вариант.
 
-Inspired by these cell examples there is benchmark program, named
-[Cell](https://github.com/Hopac/Hopac/tree/master/Benchmarks/Cell), that
-creates large numbers of cells and large numbers of jobs running in parallel
-that perform updates on randomly chosen cells.  While the benchmark program is
-not terribly exciting, it nicely substantiates the claims made in the first
-section about the lightweight nature of Hopac jobs and channels.
+Обратите внимание на программу-бенчмарк [Cell](https://github.com/Hopac/Hopac/tree/master/Benchmarks/Cell),
+использующую эту реализацию, которая создает большое количество `job` и ячеек и случайным образом работате с ними.
+Это хорошо подтверждает легковесность Hopac, описанную в самом начале статьи.
 
-**Exercise:** It may seem odd that two bidirectional channels are needed to
-implement the protocol.  Couldn't we use just a single channel and change the
-server loop to give and take on that single channel.  Note that this is allowed
-in Hopac and poses no problem.  A job cannot send itself a message using a
-channel in a single synchronous operation.  Explain what would go wrong if there
-was only one channel instead of separate `getCh` and `putCh` channels.  Hint:
-Consider a situation with multiple clients.
+**Упражнение**: Возможно использование двух канадов излишне для реализации такого простого
+протокола и достаточно одного двунаправленного канала (это разрешено библиотекой). `Job` посылвет сам себе сообщение
+в дной синхронной операции. Исследуйте, что может пойти не так при использовании одного канала вместо двух.
+Подсказка: Рассмотрите ситуацию с несколькими клиентами.
 
 ### Example: Kismet
 

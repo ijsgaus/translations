@@ -431,45 +431,37 @@ let cell x = Job.delay <| fun () ->
 в дной синхронной операции. Исследуйте, что может пойти не так при использовании одного канала вместо двух.
 Подсказка: Рассмотрите ситуацию с несколькими клиентами.
 
-### Example: Kismet
+### Пример: Kismet
 
-The updatable storage cell example in the previous sections may have seemed
-rather unrealistic.  The server job of a storage cell doesn't do much and it
-probably doesn't seem like something for which you'd even consider starting a
-separate thread&mdash;no matter how lightweight such a thread would be.  In this
-section we'll sketch an example that might be a bit more compelling, although in
-a way it is also quite unreal.
+Пример с изменяемой ячейкой возможно выглядеть слегка далеким от практики. Ее серверный `job` 
+делает совсем немного, поЭтому вряд ли кто либо из вас захочет запускать для этого отдельную нить, пусть 
+даже настолько легкую, насколько это вообще возможно. Давайте набросаем 
+более убедительный пример, хотя то же далекий от реальности.
 
-[UnrealScript](http://en.wikipedia.org/wiki/UnrealScript) is the scripting
-language of the [Unreal Engine](http://en.wikipedia.org/wiki/Unreal_Engine) and
-is used for making games.
-[Kismet](http://en.wikipedia.org/wiki/UnrealEd#Kismet) is a tool that enables
-artists to create scripts in UnrealScript using a visual interface.  Working
-with Kismet, artists can basically create games by combining building blocks
-created by programmers.  Those building blocks can be seen as black boxes that
-have some inputs, outputs and have some interesting behavior mapping the inputs
-to outputs.
 
-On the Wikipedia page on [UnrealEd](http://en.wikipedia.org/wiki/UnrealEd) there
-is a screenshot of a simple system built using Kismet.  Take a moment to look at
-the screenshot:
+[UnrealScript](http://en.wikipedia.org/wiki/UnrealScript) - скриптовый язык 
+[Unreal Engine](http://en.wikipedia.org/wiki/Unreal_Engine), используемый для создания игра.
+
+[Kismet](http://en.wikipedia.org/wiki/UnrealEd#Kismet)  - инструмент, позволяющий создавать программы на 
+UnrealScript, использую визуальный интерфейс. Работая с Kismet, дизайнер создает игру, используя блоки, написанные программистами.
+Эти блоки можно рассмотреть как черные ящики, имеющие несколько входов и выходов и обладающие поведением, отражающим
+входы на выходы.
+
+В Wikipedia усть страничка, [UnrealEd](http://en.wikipedia.org/wiki/UnrealEd), где можно увидеть
+скриншот простой системы, построенной с помощью Kismet.  Найдите минутку и посмотрите на этот скрниншот:
 [Roboblitz](http://upload.wikimedia.org/wikipedia/en/e/e6/Kismet_Roboblitz.PNG).
-As you can see, there are basic reusable blocks like `Bool`, `Compare Bool`,
-`Delay`, and `Matinee` that have some inputs, outputs and some behavior.
+Как вы можете видеть, есть базовые преиспользуемые блоки, такие как `Bool`, `Compare Bool`,
+`Delay`, and `Matinee`, у которых есть входы, выходы и какое то поведение.
 
-Kismet, UnrealScript and the Unreal Engine, in general, have components and
-semantics that have been designed for making games.  In fact, I've never
-actually programmed in UnrealScript or used Kismet, but a curious mind might
-wonder how could black boxes like that be implemented?  Could we build something
-similar using Hopac?
+Kismet, UnrealScript and the Unreal Engine, в основе, состоят из компонентов и семантики, спроектированной 
+для разработки игр. Фактически, я (автор) никогда по настоящему на программировал на UnrealScript и не использовалKismet, 
+но мне было крайне любопытно, как создавать подобные черные ящики? Можно ли построить что либо похожее,
+опираясь на возможности Hopac?
 
-Let's first consider the `Compare Bool` box.  Looking at the screenshot and
-making an educated guess, it seems to have an input event `In` and two output
-events `True` and `False` and it also seems to read a `Bool` variable.  It would
-seem that the idea is that when the box receives the `In` event, it signals
-either the `True` or the `False` event depending on the current value of the
-`Bool` variable.  Something like that can be quite concisely expressed as a
-Hopac job:
+Сначала рассмотриьм блок `Compare Bool`.  Глядя на скриншот, можно сделат обоснованное предлоположение,
+что есть вход `In` и два выхода - `True` и `False`, и еще чтение некоей `Bool` переменной. Выглядит так, что 
+при получении входа блок выставляет один зи сигналов `True` или `False` в зависимости от значения этой переменной.
+Что то вроде этого может быть выражено такой Hopac `job`:
 
 ```fsharp
 let CompareBool (comparand: ref<bool>)
@@ -480,21 +472,16 @@ let CompareBool (comparand: ref<bool>)
   if !comparand then onTrue x else onFalse x
 ```
 
-The `CompareBool` function creates a job that first binds the `input`
-alternative and then performs either the `onTrue` or the `onFalse` action
-depending on the value of `comparand`.  As you can see, the above `CompareBool`
-job doesn't care about the type of the alternatives.  It just copies the
-received value `x` to the chosen output.
+Функция `CompareBool` создает `job`, который сначала привязывается к входной альтернативе `input`,
+а потом вызывает одну из `job's` `onTrue` или `onFalse` в зависимости от значения `comparand`.  
+Как видите, `CompareBool` не задумывается о типе значения на входе, а копирует его в зависимости от 
+`comparand` на тот или иной выход.
 
-Let's then consider the `Delay` box.  Making another educated guess and
-simplifying a bit, it has two input events `Start` and `Stop` (I leave `Pause`
-as an exercise for the reader) and two output events `Finished` and `Aborted`
-and also a time value `Duration`.  It would seem that the idea is that when the
-box receives the `Start` event, it starts a timer that counts down for the
-specified `Duration` after which the `Finished` event is signaled.  Also, if
-during the countdown, a `Stop` signal is received then the `Aborted` signal is
-signaled instead.  Here is how something like that could be expressed as a Hopac
-job:
+Теперь рассмотри блок `Delay`.  Сделав еще одно предположение и слегка упрощая, у него есть два входных события - 
+`Start` и `Stop` (Я оставлю событие `Pause` как упражнение для читателя) и два выходных события - 
+`Finished` и `Aborted`, а так же некоторое значение времени `Duration`. Выглядит так, что получив событие старт,
+блок запускает таймер на время `Duration`, по истечении которого вызывает событие `Finished`. Но, если во время активности таймера поступит сигнал `Stop`, то вызвано будет
+событие `Aborted`. Вот как это выглядит в виде Hopac `job`:
 
 ```fsharp
 let Delay (duration: ref<TimeSpan>)
@@ -507,29 +494,21 @@ let Delay (duration: ref<TimeSpan>)
               timeOut (!duration) ^=> fun () -> finished x]
 ```
 
-The `Delay` function creates a job that first binds the `start` alternative.  It
-then
-chooses[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Alt.choose)
-from two alternatives.  The first one is the given `stop` alternative and in
-case that is committed to, the value obtained from `stop` is given to the
-`aborted` action.  The second alternative starts a
-`timeOut`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.timeOut)
-alternative for the current value of `duration` and in case that is committed
-to, the value received from `start` is given to the `finished` action.
-Whichever of those alternatives becomes enabled first will then be committed to
-during run time and the other will be discarded.
+Функция `Delay` создает `job`, который привязывается к альтернативе `start`. Потом 
+выбирает[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Alt.choose) один из двух вариантов продолжения.
+Первый - это получение `stop` альтернативы, после чего выбор заканчивается и занчение полученной из альтернативы `stop`
+передается на выход `aborted`.  Вторая альтернатива запускает 
+`timeOut`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.timeOut) альтернативу с параметром времени,
+равным текущему значению `duration` и в случае его завершения значение, переданное на старте отправляется на выход `finished`.
+Побеждает событие выбора, произошедшеево время исполнения первым.
 
-These building blocks may seem deceptively simple.  What is important about
-these building blocks is that they take advantage of the ability of Hopac's jobs
-to be blocked waiting for an alternative.  Without something like that, those
-building blocks wouldn't have the kind of abilities, such as being able to wait
-for a timeout, that are needed here.
+Эти строительные блоки выглядят обманчиво простыми. Важно отметить, что эта протота опираетс яна способность
+Hopac's jobs ожидать альтернативу, находясь вв блокировке. Без подобной возможности ожидание таймаута и 
+сброс его превратилось бы в довольно сложную задачу.
 
-Those previous snippets are just two of the necessary building blocks.  Assuming
-we would have all of the building blocks packaged in similar style, what remains
-is translation of the wiring configuration specified in the screenshot into
-code.  Here is a small snippet of a sketch of what the end result could look
-like:
+Предыдущие примеры - только два из необходимых строительных блоков. Представим, что у нас есть все необходимые блоки, созданные в одинаковом стиле,
+как тогда перевести сценарий их соединения, показанный на скриншоте, в код?
+Вот маленький набросок того, как это могло бы выглядеть:
 
 ```fsharp
 let ch_1 = Ch ()
@@ -552,18 +531,14 @@ do! Delay (ref (TimeSpan.FromSeconds 3.14))
 // ...
 ```
 
-The above initialization code sketch first creates shared channels and
-variables.  Then the desired building block jobs are created, passing them
-appropriate input alternatives and output actions, and started as server jobs
-that loop indefinitely.
+Код инициализации создает общие каналы и переменные. Потом создаются соответствующие `job` с правильно соединенными входами и 
+выходами, каждый (`job`) из которых запускается как бесконечно работающий сервер.
 
-Now, games often have their own specific notion of time, different from
-wall-clock time, which means that for programming games, the sketched
-implementation of `Delay` would not give the desired meaning of time.  (But you
-can certainly implement a notion of time more suitable for games on top of
-Hopac.)  Also, the way variables are represented as mutable ref cells is a bit
-naive.  Unrealistic as it may be, this sketch has hopefully given you something
-interesting to think about!
+Конесно, игры часто используют свое собственное представление времени, отличное от часов на вашей руке,
+поэтому в реальной игре реализацию `Delay` придется делать по другому (но и это можно реализовать в рамках Hopac).
+Да и использование переменных в виде изменяемых ссылок на ячейки памяти слегка наивно, но, надеюсь, этот пример
+даст вам пищу для размышлений. 
+
 
 Starting and Waiting for Jobs
 -----------------------------

@@ -540,13 +540,12 @@ do! Delay (ref (TimeSpan.FromSeconds 3.14))
 даст вам пищу для размышлений. 
 
 
-Starting and Waiting for Jobs
+Запуск и ожидание `Jobs`
 -----------------------------
 
-After running through the introductory examples, let's take a step back and just
-play a bit with jobs.  Here is a simple job that has a loop that first
-sleeps[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.timeOut)
-for a second and then prints a given message:
+Посмотрев вступительные примеры, вернемся на шаг назад и немного поиграем с `job's`.
+Djn ghjcnjq `job`, который в цикле сначала спит [*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Hopac.timeOut)
+в течении секунды, а потом печатает сообщение:
 
 ```fsharp
 let hello what = job {
@@ -556,7 +555,7 @@ let hello what = job {
 }
 ```
 
-Let's then start two such jobs roughly half a second a part:
+Запустим двеа таких `jobs` с разницей в полсекунды:
 
 ```fsharp
 > run <| job {
@@ -573,14 +572,12 @@ Hello, from a job!
 Hello, from another job!
 ```
 
-One unfortunate thing in the above example is that the program returns
-immediately and the two jobs keep running in the background.  The
+К несчастью, проограмма из этого примера вернется немедленно, а `job` останутся запущенными в фоне.
 `Job.start`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.start)
-primitive doesn't implicitly provide for any way to wait for the started job to
-finish.  This is intentional, because it is quite common to start jobs that
-don't need to return.  A
+примитив напрямую не предоставляет никакого способа дождаться окончания запущенных `job`.  
+Это сделано намеренно, так как самое распространненое поведение `job` - запуститься и никогда не останавливаться. 
 `Promise`[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Promise)
-allows a parent job to wait for a child job:
+позволяет родительскому job дождаться завершения потомка:
 
 ```fsharp
 > run <| job {
@@ -600,15 +597,12 @@ val it : unit = ()
 >
 ```
 
-Now the program explicitly waits for the children to finish and the output is
-clearer.  There is one more unfortunate thing in the above program.  The two
-promises are read in a specific order.  In this program it doesn't really
-matter, but it is a good demonstration of the flexibility of Hopac to show that
-we can indeed avoid this order dependency by using
-selective[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Alt.choose)
-communication offered by the
-alternative[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Alt)
-mechanism:
+Теперь программа явно ждет завершения своих потомков и вывод программы стал правильным. 
+Есть еще одна неудачная вещь в этой программе. Promises читаются строго последовательно.
+В следующей программе это не имеет особого смысла, но хорошо демонстрирует гибкость Hopac,
+позволяющую избежать упорядоченной зависимости  с использованием 
+избирательной[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Alt.choose)
+связи, предоставляемой механизмом альтернатив[*](http://hopac.github.io/Hopac/Hopac.html#def:type%20Hopac.Alt):
 
 ```fsharp
 > run <| job {
@@ -632,19 +626,16 @@ First job finished first.
 Hello, from another job!
 val it : unit = ()
 ```
+Если вы запустите последнюю программу, то увидите, что сообщение `First job
+finished first.` напечатается примерно на полсекундыi раньше , чем последнее сообщение `Hello, from
+another job!` перед тем как программа завершится и F# interactive напечатает выведенный тип.
 
-When you run the above program, you will notice that the message `First job
-finished first.` is printed about half a second before the last `Hello, from
-another job!` message after which the program is finished and F# interactive
-prints the inferred type.
-
-Working with many jobs at this level would be rather burdensome.  Hopac also
-provides functions such as
+Работа с многими `job` на таком уровне довольно обременительна, поэтому Hopac предоставляет функции
 `Job.conCollect`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.conCollect)
-and
+и
 `Job.conIgnore`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.conIgnore)
-for starting and waiting for a sequence of jobs.  In this case we don't care
-about the results of the jobs, so `Job.conIgnore` is what we use:
+для запуска и ожидания списков `jobs`.  В нашем случае результат исполнения `jobs` нам не интересен,
+поэтому воспользумся функцией `Job.conIgnore`:
 
 ```fsharp
 > [timeOut (TimeSpan.FromSeconds 0.0) >>-. hello "Hello, from first job!" ;
@@ -663,9 +654,7 @@ Hello, from third job
 val it : unit = ()
 >
 ```
-
-The above program starts three concurrent jobs, that print messages roughly 0.3
-seconds apart from each other, and waits for all three of the jobs to finish.
+Эта программа запускает три параллельных `jobs`, печатающих сообщения с разницей в 0.3 секунды и ожидает их окончания.
 
 ### Fork-Join Parallelism
 

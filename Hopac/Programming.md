@@ -658,26 +658,22 @@ val it : unit = ()
 
 ### Fork-Join Parallelism
 
-Above we saw various ways of starting and waiting for jobs.  There isn't really
-any communication between the individual jobs in these examples.  Indeed, the
-strength of Hopac is in that it provides high-level primitives for such
-communication among concurrent jobs.  Nevertheless, the style of programming
-that consists of starting and joining with threads is also known as *fork-join
-parallelism* and is a convenient paradigm for expressing many parallel
-algorithms.
+Только что мы научились нескольким способам запуска и ожидания `jobs`, но между индивидуальными задачами 
+в примерах не было никакого обмена данными. Тем временем, сила Hopac в предоставлении высокоуровневых примитивов коммуникации
+между конкурентными `jobs`, реализующих в том числе и стиль программирования, основанный на запуске и объединении результатов
+нескольких потоков, известном как *fork-join
+parallelism* и являющимся распространенной парадигмой многих параллельных алгоритмов.
 
-One of the goals for Hopac is to be able to achieve speedups on multicore
-machines.  The primitives, such as channels, jobs (threads in CML) and
-alternatives (events in CML) inspired by Concurrent ML are primarily designed
-for concurrent programming involving separate threads of execution.  For
-achieving speedups from parallelism, such independent threads of execution may
-not be essential.  Sometimes it may be more efficient to avoid creating a new
-thread of execution for every individual job, while some jobs are still being
-executed in parallel.
+Одна из целей Hopac - это ускорение вычислений на многоядерных машинах. 
+Примитивы, такие как каналы, `jobs` (threads в CML) и альтернативы (events в CML), вдохновленные Concurrent ML, первично разработаны
+для конкуррентного программирования в различных потоках исполнения. Для достижения ускорения от распараллеливания наличие независимых
+потоков может быть не настолько существенным, как создание нового тпотока исполнения для каждого индивидуального действия, когда сразу несколько `jobs`
+могут выполняться параллельно, то есть есть некий пул `jobs`, которые готовы к исполнению и процессы могут исполнять любые из них.
 
-#### The Fibonacci Function and Optional Parallelism
 
-Consider the following naive implementation of the Fibonacci function as a job:
+#### Фунция Фибоначчи и параллелизм
+
+Начнем с такой наивной реализации функции Фибоначчи в виде `job`:
 
 ```fsharp
 let rec fib n = Job.delay <| fun () ->
@@ -688,40 +684,36 @@ let rec fib n = Job.delay <| fun () ->
     x + y
 ```
 
-The above implementation makes use of the combinators
+Эта реализация выполнена с помощью комбинаторов
 `<&>`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3C%26%3E)
-and
+и
 `>>-`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E-)
-whose meanings can be specified in terms of
+чей смысл может быть выражен в терминах
 `result`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Job.result)
-and
+и
 `>>=`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3E%3E=)
-as follows:
+следующим образом:
 
 ```fsharp
 let (<&>) xJ yJ = xJ >>= fun x -> yJ >>= fun y -> result (x, y)
 let (>>-) xJ x2y = xJ >>= fun x -> result (x2y x)
 ```
 
-Note that the semantics of `<&>` are entirely sequential and as a whole the
-above `fib` job doesn't use any parallelism.
+Заметьте, что семантика `<&>` послностью последовательна и такая `fib` job не использует паралеллизма.
 
-After evaluating the above definition of `fib` in the F# interactive, we can run
-it as follows:
+Запустим эту реализацию в F# Interactive:
 
 ```fsharp
 > run (fib 38L) ;;
 val it : int64 = 39088169L
 ```
 
-If you ran the above code, you noticed that it took some time for the result to
-appear.  Indeed, this is an extremely inefficient exponential time algorithm for
-computing Fibonacci numbers.
+Если вы действительно исполнили код, то заметили, что получение результата заняло заметное время. Дейсьвительно,
+это экстремально неэффективный алгоритм.
 
-Let's make a small change, namely, let's change from the sequential pair
-combinator
+Давайте сделаем небольшое изменение, заменив последовательный комбинатор
 `<&>`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3C%26%3E)
-to the parallel pair combinator
+на параллельный
 `<*>`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Infixes.%3C%2A%3E):
 
 ```fsharp
@@ -733,12 +725,10 @@ let rec fib n = Job.delay <| fun () ->
     x + y
 ```
 
-The parallel pair combinator `<*>` makes it so that the two jobs given to it are
-either executed sequentially, just like `<&>`, or if it seems like a good thing
-to do, then the two jobs are executed in two separate jobs that may eventually
-run in parallel.  For this to be safe, the jobs must be safe to run *both* in
-parallel and in sequence.  In this case those conditions both apply, but, for
-example, the following job might deadlock:
+Паралелльный комбинатор `<*>` позволяет запускать 2 jobs как последовательно, так и параллельно, в зависимости от текущих возможностей.
+Иными словами, приналичии возможности и свободного потока исполнение будет параллельным или последовательным, любым. 
+Для того, чтобы это было возможно, нужно, чтобы `jobs` безопасно могли работать одновременно. В примере это так, 
+но вот пример вызывающий взаимную блокировку: 
 
 ```fsharp
 let notSafe = Job.delay <| fun () ->
@@ -746,14 +736,12 @@ let notSafe = Job.delay <| fun () ->
   Ch.take c <*> Ch.give c ()
 ```
 
-The problem in the above job is that both the
+Проблема в том, что этот `job` одновременно использует и 
 `take`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.take)
-and the
-`give`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.give)
-operations are not guaranteed to be executed in two separate jobs and a single
-job cannot communicate with itself using `take` and `give` operations on
-channels.  Whichever operation happens to be executed first will block waiting
-for the other pair of the communication that never appears.
+и
+`give`[*](http://hopac.github.io/Hopac/Hopac.html#def:val%20Hopac.Ch.give),
+и нет гарантии, что они будут выполняться в отдельных нитях, а одна нить не может коммуницировать сама с собой с помощью
+этих операций по одному каналу. Поэтому первая операция заблокируется в ожэидании второй, которая не сможет быть выполнена.
 
 ##### Speedup?
 
